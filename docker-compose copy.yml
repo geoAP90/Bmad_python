@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # Backend - FastAPI
+  api:
+    build: ./backend
+    container_name: ai-summarizer-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    depends_on:
+      - ollama
+    networks:
+      - summarizer-network
+
+  # Frontend - Streamlit
+  frontend:
+    build: ./frontend
+    container_name: ai-summarizer-frontend
+    ports:
+      - "8501:8501"
+    env_file:
+      - frontend/.env
+    depends_on:
+      - api
+    networks:
+      - summarizer-network
+
+  # Inference - Ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-summarizer-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    networks:
+      - summarizer-network
+
+networks:
+  summarizer-network:
+    driver: bridge
+
+volumes:
+  ollama-models:

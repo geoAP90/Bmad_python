@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Backend - FastAPI (Production - Pulls from Docker Hub)
+  api:
+    image: ${DOCKERHUB_USERNAME}/article-analyzer-backend:latest
+    container_name: ai-summarizer-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - backend/.env
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+    networks:
+      - summarizer-network
+    restart: unless-stopped
+
+  # Frontend - Streamlit (Production - Pulls from Docker Hub)
+  frontend:
+    image: ${DOCKERHUB_USERNAME}/article-analyzer-frontend:latest
+    container_name: ai-summarizer-frontend
+    ports:
+      - "8501:8501"
+    env_file:
+      - frontend/.env
+    depends_on:
+      - api
+    networks:
+      - summarizer-network
+    restart: unless-stopped
+
+networks:
+  summarizer-network:
+    driver: bridge
+
+# Note: The 'ollama' service is removed to use the Mac Native App
+# Ensure DOCKERHUB_USERNAME is set in your environment or .env file
