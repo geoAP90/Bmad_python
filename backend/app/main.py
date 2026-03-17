@@ -1,6 +1,6 @@
 """
 FastAPI application for AI Summarizer.
-A private, local-first text summarization engine for scientific and narrative analysis.
+A private, local-first text summarization engine for scientific and narrative analysis. 
 """
 import os
 from contextlib import asynccontextmanager
