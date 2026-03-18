@@ -2,8 +2,7 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'backend/**'
       - 'frontend/**'
@@ -16,14 +15,11 @@ env:
 
 jobs:
   # ============================================================================
-  # FAIL-SAFE TESTING JOB - Must pass BEFORE Docker Build starts
+  # FAIL-SAFE TESTING JOB
   # ============================================================================
   test:
     name: Fail-Safe Tests
     runs-on: ubuntu-latest
-    outputs:
-      test_passed: ${{ steps.run_tests.outputs.test_passed }}
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -44,33 +40,7 @@ jobs:
         id: run_tests
         working-directory: ./backend
         run: |
-          echo "Running Fail-Safe Testing Strata..."
-          echo "========================================"
-          echo ""
-          echo "Test Categories:"
-          echo "1. Input Validation (422 for empty/whitespace/below-min-length)"
-          echo "2. Circuit Breaker (503 for Ollama timeout)"
-          echo "3. Persona Verification (Geophysicist in system prompt)"
-          echo ""
-          
-          # Run pytest with verbose output
           python -m pytest test_failsafe.py -v --tb=short --junitxml=test-results.xml
-          TEST_RESULT=$?
-          
-          if [ $TEST_RESULT -eq 0 ]; then
-            echo "test_passed=true" >> $GITHUB_OUTPUT
-            echo ""
-            echo "✅ ALL FAIL-SAFE TESTS PASSED"
-            echo "========================================"
-          else
-            echo "test_passed=false" >> $GITHUB_OUTPUT
-            echo ""
-            echo "❌ FAIL-SAFE TESTS FAILED"
-            echo "========================================"
-            echo "⚠️  PIPELINE WILL NOT PROCEED TO DOCKER BUILD"
-            echo "⚠️  DOCKER HUB PUSH WILL BE SKIPPED"
-            exit 1
-          fi
 
       - name: Upload test results
         if: always()
@@ -78,10 +48,29 @@ jobs:
         with:
           name: test-results
           path: backend/test-results.xml
-          retention-days: 7
+
+      # --- CRITICAL: NOTIFY ARCHITECT IF TESTS FAIL ---
+      - name: 🚨 Notify Architect - Test Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          secure: true
+          from: BMAD Strata <${{ secrets.MAIL_USERNAME }}>
+          to: ${{ secrets.MAIL_TO }}
+          subject: '❌ BMAD Strata: Test Failure'
+          body: |
+            The Fail-Safe Testing Strata has FAILED for ${{ github.repository }}.
+            The pipeline has been HALTED to protect the production environment.
+            
+            - Commit: ${{ github.sha }}
+            - Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
   # ============================================================================
-  # DOCKER BUILD JOB - Only runs AFTER tests pass (depends on test job)
+  # DOCKER BUILD JOB (Depends on 'test' passing)
   # ============================================================================
   build-and-push:
     needs: test
@@ -108,8 +97,6 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_BACKEND }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -120,18 +107,14 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_FRONTEND }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
-      # ============================================================================
-      # EMAIL NOTIFICATION - Success Case
-      # ============================================================================
-      - name: Send Success Email
+      # --- NOTIFY ARCHITECT ON FULL SUCCESS ---
+      - name: 🍏 Notify Architect - SUCCESS
         if: success()
         uses: dawidd6/action-send-mail@v3
         with:
-          server: smtp.gmail.com
-          port: 465
+          server_address: smtp.gmail.com
+          server_port: 465
           username: ${{ secrets.MAIL_USERNAME }}
           password: ${{ secrets.MAIL_PASSWORD }}
           secure: true
@@ -139,48 +122,8 @@ jobs:
           to: ${{ secrets.MAIL_TO }}
           subject: '✅ BMAD Strata Stable'
           body: |
-            The BMAD Strata pipeline has completed successfully!
+            The complete BMAD pipeline for ${{ github.repository }} is STABLE.
             
-            ## Build Details
-            - **Commit SHA**: ${{ github.sha }}
-            - **Branch**: ${{ github.ref_name }}
-            - **Workflow Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
-            ## Docker Images
-            - Backend: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
-            - Frontend: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME_FRONTEND }}:${{ github.sha }}
-            
-            ---
-            *This is an automated notification from GitHub Actions.*
-          html: false
-
-      # ============================================================================
-      # EMAIL NOTIFICATION - Failure Case
-      # ============================================================================
-      - name: Send Failure Email
-        if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server: smtp.gmail.com
-          port: 465
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          secure: true
-          from: BMAD Strata <${{ secrets.MAIL_USERNAME }}>
-          to: ${{ secrets.MAIL_TO }}
-          subject: '❌ BMAD Strata Failure'
-          body: |
-            The BMAD Strata pipeline has FAILED!
-            
-            ## Failure Details
-            - **Commit SHA**: ${{ github.sha }}
-            - **Branch**: ${{ github.ref_name }}
-            - **Workflow Run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
-            ## View Logs
-            Please check the GitHub Actions logs for details:
-            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            
-            ---
-            *This is an automated notification from GitHub Actions.*
-          html: false
+            - Status: Tests Passed & Docker Hub Updated.
+            - Commit: ${{ github.sha }}
+            - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
