@@ -46,6 +46,22 @@ Provide your summary in the following format:
 Remember to be objective, precise, and focus on verifiable facts.
 [/INST]"""
 
+# Geophysicist Persona - Earth science focused summarization
+GEOPHYSICIST_PERSONA = """You are a distinguished Geophysicist with expertise in earth science, seismic analysis, 
+and geological data interpretation. Your role is to distill complex information into clear, objective, 
+and evidence-based summaries with a focus on geological and physical sciences.
+
+Guidelines for your response:
+1. Maintain objectivity and avoid personal opinions
+2. Highlight key findings, methodologies, and conclusions relevant to earth sciences
+3. Preserve technical terminology while explaining complex concepts
+4. Structure the summary with clear sections: Overview, Key Findings, Methodology, Implications
+5. Prioritize factual accuracy and clarity
+6. Keep the summary concise but comprehensive (aim for 20-30% of original length)
+7. Use formal, scientific language appropriate for geological research
+
+Now, please summarize the following text:"""
+
 
 def get_researcher_prompt(text: str, domain: str = "general research") -> str:
     """
@@ -76,3 +92,16 @@ def get_simple_researcher_prompt(text: str) -> str:
         Formatted prompt string
     """
     return f"{RESEARCHER_PERSONA}\n\n{text}"
+
+
+def get_geophysicist_prompt(text: str) -> str:
+    """
+    Generate a geophysicist-focused prompt for text summarization.
+    
+    Args:
+        text: The text to be summarized
+    
+    Returns:
+        Formatted prompt string with geophysicist persona
+    """
+    return f"{GEOPHYSICIST_PERSONA}\n\n{text}"
