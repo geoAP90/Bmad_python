@@ -15,7 +15,76 @@ env:
   IMAGE_NAME_FRONTEND: article-analyzer-frontend
 
 jobs:
+  # ============================================================================
+  # FAIL-SAFE TESTING JOB - Must pass BEFORE Docker Build starts
+  # ============================================================================
+  test:
+    name: Fail-Safe Tests
+    runs-on: ubuntu-latest
+    outputs:
+      test_passed: ${{ steps.run_tests.outputs.test_passed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx fastapi pydantic python-dotenv
+          pip install -r requirements.txt
+
+      - name: Run Fail-Safe Tests
+        id: run_tests
+        working-directory: ./backend
+        run: |
+          echo "Running Fail-Safe Testing Strata..."
+          echo "========================================"
+          echo ""
+          echo "Test Categories:"
+          echo "1. Input Validation (422 for empty/whitespace/below-min-length)"
+          echo "2. Circuit Breaker (503 for Ollama timeout)"
+          echo "3. Persona Verification (Geophysicist in system prompt)"
+          echo ""
+          
+          # Run pytest with verbose output
+          python -m pytest test_failsafe.py -v --tb=short --junitxml=test-results.xml
+          TEST_RESULT=$?
+          
+          if [ $TEST_RESULT -eq 0 ]; then
+            echo "test_passed=true" >> $GITHUB_OUTPUT
+            echo ""
+            echo "✅ ALL FAIL-SAFE TESTS PASSED"
+            echo "========================================"
+          else
+            echo "test_passed=false" >> $GITHUB_OUTPUT
+            echo ""
+            echo "❌ FAIL-SAFE TESTS FAILED"
+            echo "========================================"
+            echo "⚠️  PIPELINE WILL NOT PROCEED TO DOCKER BUILD"
+            echo "⚠️  DOCKER HUB PUSH WILL BE SKIPPED"
+            exit 1
+          fi
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: backend/test-results.xml
+          retention-days: 7
+
+  # ============================================================================
+  # DOCKER BUILD JOB - Only runs AFTER tests pass (depends on test job)
+  # ============================================================================
   build-and-push:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
