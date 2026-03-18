@@ -32,28 +32,18 @@ class OllamaService:
     async def generate_summary(self, prompt: str) -> str:
         """
         Generate a complete summary using the Ollama model.
-        
-        Args:
-            prompt: The formatted prompt with text to summarize
-            
-        Returns:
-            The generated summary string from the LLM
-            
-        Raises:
-            ConnectionError: If the Ollama service is unreachable
-            RuntimeError: If the API returns a non-200 status
-            ValueError: If the response format is unexpected
         """
-        # Ensure the timeout is high enough for long summaries on local hardware
+        from fastapi import HTTPException # Import inside to avoid circular dependencies if any
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             request_data = {
                 "model": self.model,
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "num_predict": 1024,  # Prevents mid-sentence cutoff
-                    "num_ctx": 4096,      # Allows the model to 'remember' the whole input
-                    "temperature": 0.7    # Balances coherence and variation
+                    "num_predict": 1024,
+                    "num_ctx": 4096,
+                    "temperature": 0.7
                 }
             }
             
@@ -65,30 +55,29 @@ class OllamaService:
                 response.raise_for_status()
                 
             except httpx.ConnectError:
-                raise ConnectionError(
-                    f"Could not connect to Ollama at {self.host}. "
-                    "Please ensure the Ollama service is running."
-                )
-            except httpx.HTTPStatusError as e:
-                raise RuntimeError(
-                    f"Ollama API returned an error: {e.response.status_code} - {e.response.text}"
+                # Map connection issues to 503
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Could not connect to Ollama at {self.host}."
                 )
             except httpx.TimeoutException:
-                raise RuntimeError(
-                    f"Ollama took too long to respond. Current timeout is {self.timeout}s."
+                # Map timeouts to 503 (This fixes your failing test!)
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"Ollama took too long to respond (>{self.timeout}s)."
+                )
+            except httpx.HTTPStatusError as e:
+                # Keep 500 for actual API logic crashes
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Ollama API returned an error: {e.response.status_code}"
                 )
 
             data = response.json()
-            
-            # Extract the actual summary text
             summary_text = data.get("response")
             
             if not summary_text:
-                raise ValueError("Ollama returned an empty response or invalid JSON structure.")
-
-            # Logic Check: Verify if it stopped due to length limits
-            if data.get("done_reason") == "length":
-                print("Warning: Summary reached the max token limit and may be incomplete.")
+                raise HTTPException(status_code=500, detail="Ollama returned empty response.")
 
             return summary_text.strip()
     
