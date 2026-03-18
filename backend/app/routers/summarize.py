@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from app.services.ollama_service import ollama_service
 from app.prompts.templates import get_simple_researcher_prompt
-
+import httpx
 
 # Request model
 class SummarizeRequest(BaseModel):
@@ -63,12 +63,15 @@ async def summarize_text(request: SummarizeRequest):
             summary_length=summary_length,
             compression_ratio=round(compression_ratio, 2)
         )
-        
-    except ConnectionError as e:
+   
+
+    # Inside the summarize_text function:
+    except (ConnectionError, httpx.ConnectError) as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Ollama service unavailable: {str(e)}"
         )
+    
     except RuntimeError as e:
         # Check if the error message mentions a timeout
         if "timeout" in str(e).lower():
