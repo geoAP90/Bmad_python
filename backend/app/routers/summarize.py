@@ -70,6 +70,13 @@ async def summarize_text(request: SummarizeRequest):
             detail=f"Ollama service unavailable: {str(e)}"
         )
     except RuntimeError as e:
+        # Check if the error message mentions a timeout
+        if "timeout" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Ollama service timed out: {str(e)}"
+            )
+        # Otherwise, keep it as a 500
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generating summary: {str(e)}"
