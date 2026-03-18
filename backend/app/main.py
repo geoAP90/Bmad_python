@@ -1,5 +1,5 @@
 """
-FastAPI application for AI Summarizer.
+FastAPI_application for AI Summarizer.
 A private, local-first text summarization engine for scientific and narrative analysis. 
 """
 import os
