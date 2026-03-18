@@ -37,23 +37,23 @@ fi
 
 # Step 2: Authenticate with Docker Hub
 echo -e "${YELLOW}Step 2: Authenticating with Docker Hub...${NC}"
-if [ -z "$arpitageo06" ] || [ -z "$dckr_pat_xfLrdt8SRwrCb4lQe0uQFj49rh0" ]; then
-    echo -e "${YELLOW}Warning: arpitageo06 or dckr_pat_xfLrdt8SRwrCb4lQe0uQFj49rh0 not set in environment.${NC}"
+if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+    echo -e "${YELLOW}Warning: DOCKERHUB_USERNAME or DOCKERHUB_TOKEN not set in environment.${NC}"
     echo -e "${YELLOW}Attempting to login using docker login...${NC}"
-    if [ -n "$arpitageo06" ]; then
-        echo "$dckr_pat_xfLrdt8SRwrCb4lQe0uQFj49rh0" | docker login -u "$arpitageo06" --password-stdin
+    if [ -n "$DOCKERHUB_USERNAME" ]; then
+        echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
     else
         echo -e "${YELLOW}Please enter your Docker Hub credentials when prompted.${NC}"
         docker login
     fi
 else
-    echo "$dckr_pat_xfLrdt8SRwrCb4lQe0uQFj49rh0" | docker login -u "$arpitageo06" --password-stdin
+    echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
 fi
 echo -e "${GREEN}Docker Hub authentication successful!${NC}"
 
 # Step 3: Pull the latest images from Docker Hub
 echo -e "${YELLOW}Step 3: Pulling latest images from Docker Hub...${NC}"
-arpitageo06="${arpitageo06:-$(echo $USER)}"
+DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$(echo $USER)}"
 docker-compose -f docker-compose.prod.yml pull
 echo -e "${GREEN}Images pulled successfully!${NC}"
 
