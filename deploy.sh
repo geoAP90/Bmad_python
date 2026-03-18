@@ -53,7 +53,9 @@ echo -e "${GREEN}Docker Hub authentication successful!${NC}"
 
 # Step 3: Pull the latest images from Docker Hub
 echo -e "${YELLOW}Step 3: Pulling latest images from Docker Hub...${NC}"
-DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$(echo $USER)}"
+# Force the script to use your Docker Hub identity
+export DOCKERHUB_USERNAME="arpitageo06"
+# Run the pull command
 docker-compose -f docker-compose.prod.yml pull
 echo -e "${GREEN}Images pulled successfully!${NC}"
 
